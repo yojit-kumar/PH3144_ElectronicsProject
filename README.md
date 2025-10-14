@@ -1,6 +1,7 @@
 # Precision Closed-Loop AC Power Controller using PID Algorithm
 
 **Course:** PH3144 Electronics-I with Lab
+
 **Status:** 🚧 In Progress 🚧
 
 A project to design and build a closed-loop AC power controller using a PID algorithm to deliver a precise, stable power output to a load.
