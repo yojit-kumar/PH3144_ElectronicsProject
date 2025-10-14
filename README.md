@@ -15,6 +15,7 @@ A project to design and build a closed-loop AC power controller using a PID algo
 * **/docs:** Contains all project documentation, including the report, component datasheets, and images.
 * **/hardware:** Contains hardware design files (schematics, PCB layouts from KiCad).
 * **/src:** Contains all Arduino source code, organized by testing phase.
+* **/dump:** Put anything and everything we find before the finalizing of the project, It may later get sorted and moved to the relavant folders.
 
 ## Getting Started
 1.  Clone the repository: `git clone https://github.com/yojit-kumar/PH3144_ElectronicsProject`
