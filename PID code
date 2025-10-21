@@ -1,0 +1,65 @@
+// ----- PHASE ANGLE CONTROL WITH PID -----
+
+#include <PID_v1.h>
+
+// Pin definitions
+const int zeroCrossPin = 2;   // Interrupt pin for zero-cross detection
+const int triacPin      = 9;  // TRIAC gate control pin
+const int sensorPin     = A0; // Feedback input (e.g., temperature)
+
+// Variables for zero-cross handling
+volatile boolean zeroCrossDetected = false;
+
+// PID variables
+double setpoint = 50.0;   // Desired power or temperature
+double input;             // Sensor feedback
+double output;            // PID output (maps to firing delay)
+double Kp = 20, Ki = 5, Kd = 1; // Tune these experimentally
+
+// PID object
+PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
+
+// AC timing constants
+const int AC_FREQ = 50;   // Hz
+const int HALF_CYCLE = 10000; // microseconds (1/(2*50Hz))
+const int MIN_DELAY = 200;    // microseconds (to ensure proper firing)
+const int MAX_DELAY = 9500;   // microseconds (almost full off)
+
+void setup() {
+  pinMode(triacPin, OUTPUT);
+  pinMode(zeroCrossPin, INPUT);
+
+  attachInterrupt(digitalPinToInterrupt(zeroCrossPin), zeroCrossISR, RISING);
+
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(MIN_DELAY, MAX_DELAY); // Firing delay control range
+
+  Serial.begin(9600);
+  Serial.println("PID Phase Angle Control Started...");
+}
+
+void loop() {
+  // Read feedback (e.g. temperature or power)
+  input = analogRead(sensorPin) * (100.0 / 1023.0); // Scale to 0–100 range
+
+  // Compute PID
+  myPID.Compute();
+
+  // Output firing delay is handled after zero-cross
+  if (zeroCrossDetected) {
+    delayMicroseconds((int)output);
+    digitalWrite(triacPin, HIGH);
+    delayMicroseconds(100); // short pulse to trigger TRIAC
+    digitalWrite(triacPin, LOW);
+    zeroCrossDetected = false;
+  }
+
+  // Debug info
+  Serial.print("Input: "); Serial.print(input);
+  Serial.print("  Setpoint: "); Serial.print(setpoint);
+  Serial.print("  Delay(us): "); Serial.println(output);
+}
+
+void zeroCrossISR() {
+  zeroCrossDetected = true;
+}
