@@ -1,3 +1,5 @@
+double Kp = 10, Ki = 3, Kd = 0.5;
+
 // ----- PHASE ANGLE CONTROL WITH PID -----
 
 #include <PID_v1.h>
