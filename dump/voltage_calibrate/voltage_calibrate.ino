@@ -11,11 +11,11 @@
 
 #include <ZMPT101B.h>
 
-#define ACTUAL_VOLTAGE 228.6f // Change this based on actual voltage
+#define ACTUAL_VOLTAGE 230.0f // Change this based on actual voltage
 
-#define START_VALUE 400.0f
+#define START_VALUE 0.0f
 #define STOP_VALUE 1000.0f
-#define STEP_VALUE 0.05f
+#define STEP_VALUE 0.5f
 #define TOLLERANCE 0.5f
 
 #define MAX_TOLLERANCE_VOLTAGE (ACTUAL_VOLTAGE + TOLLERANCE)

@@ -44,7 +44,7 @@ void loop() {
     digitalWrite(TRIAC_PIN, HIGH);
     delayMicroseconds(1000); // Pulse for 1ms
     digitalWrite(TRIAC_PIN, LOW);
-    delay(2); // Wait 9ms
+    delay(1); // Wait 9ms
     
   } else {
     // If the bulb should be OFF, we do nothing.
