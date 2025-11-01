@@ -5,8 +5,9 @@
 	(uuid "a2f96278-750d-4bf9-a203-0a8ee8a3749a")
 	(paper "A4")
 	(title_block
-		(date "2025-10-31")
-		(rev "1.0")
+		(title "AC_Power_Controller")
+		(date "2025-11-01")
+		(rev "1.1")
 	)
 	(lib_symbols
 		(symbol "Analog_ADC:ADS1115IDGS"
@@ -4137,16 +4138,6 @@
 	)
 	(wire
 		(pts
-			(xy 146.05 157.48) (xy 76.2 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "31cd0c52-5cfa-4f59-9475-c71011529ffd")
-	)
-	(wire
-		(pts
 			(xy 151.13 111.76) (xy 86.36 111.76)
 		)
 		(stroke
@@ -4224,16 +4215,6 @@
 			(type default)
 		)
 		(uuid "594fcaee-bcb1-424f-b829-5262c0b8a375")
-	)
-	(wire
-		(pts
-			(xy 146.05 142.24) (xy 146.05 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5ce026a7-0734-4749-861d-ef7117b33b5d")
 	)
 	(wire
 		(pts
@@ -4324,6 +4305,16 @@
 			(type default)
 		)
 		(uuid "80972d25-8c0c-4558-96e0-9a6937be0a20")
+	)
+	(wire
+		(pts
+			(xy 140.97 142.24) (xy 140.97 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "80dd1681-06c4-4e47-8f01-21c23040aa26")
 	)
 	(wire
 		(pts
@@ -4444,6 +4435,16 @@
 			(type default)
 		)
 		(uuid "b147edb4-3f52-45d5-bf7a-e6c19d560ca9")
+	)
+	(wire
+		(pts
+			(xy 140.97 157.48) (xy 76.2 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b44512a3-4840-4bbd-b242-9a92ef69950f")
 	)
 	(wire
 		(pts
