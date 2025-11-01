@@ -4018,6 +4018,12 @@
 		(uuid "a3687a09-1495-4b30-961e-9c0b055ba3b6")
 	)
 	(junction
+		(at 64.77 90.17)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b89925e3-c2c9-45b8-b36e-bb3cd4acc8be")
+	)
+	(junction
 		(at 245.11 58.42)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4101,6 +4107,16 @@
 	)
 	(wire
 		(pts
+			(xy 76.2 157.48) (xy 76.2 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "27bcac48-6d35-464f-a48f-eec807068abd")
+	)
+	(wire
+		(pts
 			(xy 67.31 69.85) (xy 67.31 77.47)
 		)
 		(stroke
@@ -4108,6 +4124,26 @@
 			(type default)
 		)
 		(uuid "2b98d509-9b53-4b7b-aafb-ec16b600d947")
+	)
+	(wire
+		(pts
+			(xy 76.2 90.17) (xy 64.77 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "307dccc4-7366-4f3d-97f2-b0c16b455289")
+	)
+	(wire
+		(pts
+			(xy 146.05 157.48) (xy 76.2 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "31cd0c52-5cfa-4f59-9475-c71011529ffd")
 	)
 	(wire
 		(pts
@@ -4178,6 +4214,26 @@
 			(type default)
 		)
 		(uuid "54355df6-6cab-410c-8abc-51445627eb7e")
+	)
+	(wire
+		(pts
+			(xy 64.77 90.17) (xy 64.77 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "594fcaee-bcb1-424f-b829-5262c0b8a375")
+	)
+	(wire
+		(pts
+			(xy 146.05 142.24) (xy 146.05 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ce026a7-0734-4749-861d-ef7117b33b5d")
 	)
 	(wire
 		(pts
@@ -4451,7 +4507,7 @@
 	)
 	(wire
 		(pts
-			(xy 64.77 69.85) (xy 64.77 93.98)
+			(xy 64.77 69.85) (xy 64.77 90.17)
 		)
 		(stroke
 			(width 0)
@@ -4643,7 +4699,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
 			(at 63.5 59.69 0)
 			(effects
 				(font
@@ -4725,7 +4781,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 245.11 55.88 0)
 			(effects
 				(font
@@ -4793,7 +4849,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal"
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
 			(at 208.28 58.42 0)
 			(effects
 				(font
@@ -4995,7 +5051,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 236.22 35.56 90)
 			(effects
 				(font
@@ -5132,7 +5188,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 220.98 60.96 0)
 			(effects
 				(font
@@ -5334,7 +5390,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 220.98 55.88 0)
 			(effects
 				(font
@@ -5536,7 +5592,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 64.77 96.52 0)
 			(effects
 				(font
@@ -6059,7 +6115,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 139.446 101.854 90)
 			(effects
 				(font
@@ -6129,7 +6185,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PC814:DIL04"
+		(property "Footprint" "Package_DIP:DIP-4_W10.16mm"
 			(at 62.23 118.11 0)
 			(effects
 				(font
@@ -6316,7 +6372,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 65.786 150.114 90)
 			(effects
 				(font
@@ -6386,7 +6442,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 184.15 50.8 0)
 			(effects
 				(font
@@ -6523,7 +6579,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 245.11 60.96 0)
 			(effects
 				(font
@@ -6583,7 +6639,7 @@
 				)
 			)
 		)
-		(property "Value" "Screw_Terminal_01x02"
+		(property "Value" "230VAC_IN"
 			(at 38.1 29.21 0)
 			(effects
 				(font
@@ -6591,7 +6647,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 38.1 35.56 0)
 			(effects
 				(font
@@ -6793,7 +6849,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"
 			(at 139.446 61.214 90)
 			(effects
 				(font
@@ -6931,7 +6987,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_DIP:DIP-6_W7.62mm"
 			(at 146.05 86.36 0)
 			(effects
 				(font
@@ -7299,7 +7355,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
 			(at 97.79 170.18 0)
 			(effects
 				(font
