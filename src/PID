@@ -1,0 +1,249 @@
+// Phase-angle PID control with ADS1115 measurements and LCD display
+// Hardware assumptions:
+// - Zero-cross detector to digital pin 2 (INT0) -> triggers each half-cycle
+// - TRIAC gate connected to triacPin (opto-triac recommended for isolation)
+// - ADS1115 channels:
+//     A0 -> Vin (voltage sensor before triac)
+//     A1 -> Iin (current sensor before triac)
+//     A2 -> Vout (voltage sensor after triac)
+//     A3 -> Iout (current sensor after triac)
+// - LCD on I2C (address 0x27 typical). Adjust if different.
+//
+// Safety: mains wiring is dangerous. Use appropriate isolation and protection.
+
+#include <Wire.h>
+#include <Adafruit_ADS1X15.h>
+#include <LiquidCrystal_I2C.h>
+#include <PID_v1.h>
+
+// ---------- User-configurable constants ----------
+const uint8_t zcdPin = 2;         // Zero-cross detector - must be interrupt pin (INT0)
+const uint8_t triacPin = 9;       // TRIAC gate output (use opto-isolator/MOC)
+const unsigned int triacPulseWidth_us = 100; // Gate pulse width in microseconds
+
+// ADS1115 sample accumulation window (ms)
+const unsigned long sampleWindowMs = 200; // 200 ms measurement window (adjustable)
+
+// ADS1115 gain (set according to your sensors / expected voltages)
+Adafruit_ADS1115 ads; // default I2C address 0x48
+
+// Sensor calibration (set these experimentally)
+const float V_SENSOR_SCALE = 230.0 / 0.5; // example: ZMPT output calibrates to mains 230V for some ADC reading (placeholder)
+const float I_SENSOR_SCALE = 30.0 / 0.185; // example: For SCT013-030 with burden resistor — replace with correct factor
+
+// ADS channel mapping
+const int CH_VIN = 0;
+const int CH_IIN = 1;
+const int CH_VOUT = 2;
+const int CH_IOUT = 3;
+
+// LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2); // change 0x27 if your backpack uses different address
+
+// PID
+double setpointW = 50.0; // desired output power in watts (adjust)
+double inputW = 0.0;     // measured output power (Pout)
+double pidOutput = 0.0;  // PID output (0-100 %)
+double Kp = 1.0, Ki = 0.5, Kd = 0.1;
+PID myPID(&inputW, &pidOutput, &setpointW, Kp, Ki, Kd, DIRECT);
+
+// Half-cycle period (microseconds) — will be auto-measured
+volatile unsigned long lastZC = 0;
+volatile unsigned long halfCycle_us = 10000UL; // default 10 ms (for 50Hz)
+const unsigned long maxHalfCycle_us = 20000UL;
+
+// firing scheduling (volatile for ISR)
+volatile unsigned long scheduledFireAt = 0;
+volatile bool fireScheduled = false;
+volatile unsigned long currentDelayUs = 0; // delay to apply after zero cross (set by PID)
+
+// Thread-safety helpers
+noInterrupts_t dummy; // dummy type alias not used, but keeping code readable
+
+// Measurement accumulators (not in ISR)
+unsigned long sampleWindowStart = 0;
+unsigned long sampleWindowMsCounter = 0;
+unsigned long sampleCount = 0;
+double accVinSq = 0.0, accIinSq = 0.0, accVoutSq = 0.0, accIoutSq = 0.0;
+double accInstantPower = 0.0; // sum of v * i samples for output side
+
+// ADS1115 settings
+const float ADS_VPERBIT = 0.1875e-3; // 187.5uV per bit at +/-4.096V for ADS1115 in mV per bit. Will vary by gain. Using ADS1115 default PGA +/-4.096V -> 0.125mV? (approx)
+// We'll convert raw adc -> volts via measured reference and sensor calibrations. User must calibrate.
+
+// ---------- Function prototypes ----------
+void zeroCrossISR();
+unsigned long microsSafe();
+void triggerTriacPulse();
+float readADSVoltage(int channel);
+
+// ---------- Setup ----------
+void setup() {
+  Serial.begin(115200);
+  delay(50);
+  pinMode(zcdPin, INPUT_PULLUP); // depends on ZCD hardware; change if needed
+  pinMode(triacPin, OUTPUT);
+  digitalWrite(triacPin, LOW);
+
+  // ADS1115 init
+  if (!ads.begin()) {
+    Serial.println("Failed to init ADS.");
+    while (1);
+  }
+  // Choose gain if needed (by default Adafruit ADS1115 uses GAIN_TWOTHIRDS -> +/-6.144V; adjust if required)
+  ads.setGain(GAIN_TWOTHIRDS); // adjust for expected sensor outputs
+
+  // LCD init
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Phase-Angle PID");
+  lcd.setCursor(0,1);
+  lcd.print("Initializing...");
+  delay(800);
+  lcd.clear();
+
+  // PID
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(0.0, 100.0); // pidOutput in percent (0..100)
+
+  // Attach zero-cross interrupt (trigger on FALLING or RISING depending on your ZCD)
+  attachInterrupt(digitalPinToInterrupt(zcdPin), zeroCrossISR, RISING);
+
+  sampleWindowStart = millis();
+}
+
+// ---------- Main loop ----------
+void loop() {
+  unsigned long now = millis();
+
+  // --- Sample ADC channels repeatedly within sample window ---
+  // For speed and simplicity we do single-shot reads in a tight loop for the duration of sampleWindowMs
+  if (now - sampleWindowStart < sampleWindowMs) {
+    // read channels
+    float v_in = readADSVoltage(CH_VIN);   // raw sensor voltage (V)
+    float i_in = readADSVoltage(CH_IIN);
+    float v_out = readADSVoltage(CH_VOUT);
+    float i_out = readADSVoltage(CH_IOUT);
+
+    // convert sensor voltages to physical units using calibration constants
+    // NOTE: replace the calibration formulas below with your own calibration
+    float Vrms_in_sample = v_in * V_SENSOR_SCALE;
+    float Irms_in_sample = i_in * I_SENSOR_SCALE;
+    float Vrms_out_sample = v_out * V_SENSOR_SCALE;
+    float Irms_out_sample = i_out * I_SENSOR_SCALE;
+
+    // accumulate squares for RMS estimation (we are using instantaneous converted values for simplicity)
+    accVinSq += (double)Vrms_in_sample * Vrms_in_sample;
+    accIinSq += (double)Irms_in_sample * Irms_in_sample;
+    accVoutSq += (double)Vrms_out_sample * Vrms_out_sample;
+    accIoutSq += (double)Irms_out_sample * Irms_out_sample;
+    accInstantPower += (double)Vrms_out_sample * (double)Irms_out_sample; // instantaneous approx
+    sampleCount++;
+  } else {
+    // compute RMS and power
+    if (sampleCount == 0) sampleCount = 1;
+    double Vin_rms = sqrt(accVinSq / sampleCount);
+    double Iin_rms = sqrt(accIinSq / sampleCount);
+    double Vout_rms = sqrt(accVoutSq / sampleCount);
+    double Iout_rms = sqrt(accIoutSq / sampleCount);
+    double Pin_est = Vin_rms * Iin_rms;   // apparent power in
+    double Pout_est = accInstantPower / sampleCount; // approx true power out (averaged instantaneous)
+
+    // set PID input to measured output power
+    inputW = Pout_est;
+    myPID.Compute();
+
+    // Map PID (0..100) to delay in microseconds
+    // More PID output -> more firing angle -> more power. But phase-angle: shorter delay => more power.
+    // We'll map pidOutput% to a delay from 0..halfCycle_us such that 0% -> max delay (min power), 100% -> 0 delay (max power)
+    noInterrupts();
+    unsigned long hcycle = halfCycle_us;
+    if (hcycle == 0 || hcycle > maxHalfCycle_us) hcycle = maxHalfCycle_us;
+    currentDelayUs = (unsigned long)((1.0 - (pidOutput / 100.0)) * (double)hcycle);
+    interrupts();
+
+    // Display to serial and LCD (one update per sampleWindow)
+    Serial.print("Vin_rms: "); Serial.print(Vin_rms,2);
+    Serial.print(" V, Iin_rms: "); Serial.print(Iin_rms,3);
+    Serial.print(" A, Pin: "); Serial.print(Pin_est,2);
+    Serial.print(" W | Vout: "); Serial.print(Vout_rms,2);
+    Serial.print(" V, Iout: "); Serial.print(Iout_rms,3);
+    Serial.print(" A, Pout: "); Serial.print(Pout_est,2);
+    Serial.print(" W | PID%: "); Serial.print(pidOutput,2);
+    Serial.print(" Delay(us): "); Serial.println(currentDelayUs);
+
+    // LCD - condense values to fit 16x2. show in rotation or condensed
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("In:"); lcd.print(Vin_rms,0); lcd.print("V "); lcd.print(Iin_rms,1); lcd.print("A");
+    lcd.setCursor(0,1);
+    lcd.print("Out:"); lcd.print(Vout_rms,0); lcd.print("V ");
+    lcd.print(Pout_est,0); lcd.print("W");
+
+    // Reset accumulators for next window
+    accVinSq = accIinSq = accVoutSq = accIoutSq = accInstantPower = 0.0;
+    sampleCount = 0;
+    sampleWindowStart = millis();
+  }
+
+  // --- TRIAC firing: check if scheduled and time reached ---
+  // Copy volatile state to local to minimize time with interrupts disabled
+  noInterrupts();
+  bool shouldFire = fireScheduled;
+  unsigned long fireAt = scheduledFireAt;
+  interrupts();
+
+  if (shouldFire) {
+    unsigned long tnow = micros();
+    // handle micros wrap-around gently
+    if ((long)(tnow - fireAt) >= 0) {
+      triggerTriacPulse();
+      noInterrupts();
+      fireScheduled = false;
+      interrupts();
+    }
+  }
+
+  // small sleep to yield CPU — keep low to maintain sampling
+  delay(1);
+}
+
+// ---------- Zero-cross ISR ----------
+void zeroCrossISR() {
+  // record half-cycle period
+  unsigned long now = micros();
+  unsigned long last = lastZC;
+  if (last != 0) {
+    unsigned long period = now - last;
+    // period is half-cycle in microseconds normally
+    if (period > 1000 && period < maxHalfCycle_us * 2) { // sanity limits
+      halfCycle_us = period;
+    }
+  }
+  lastZC = now;
+
+  // schedule triac firing according to currentDelayUs
+  unsigned long delayToUse = currentDelayUs; // volatile - reading directly
+  scheduledFireAt = now + delayToUse;
+  fireScheduled = true;
+}
+
+// ---------- Trigger triac pulse (called from main, not ISR) ----------
+void triggerTriacPulse() {
+  // pulse triac gate for triacPulseWidth_us
+  digitalWrite(triacPin, HIGH);
+  delayMicroseconds(triacPulseWidth_us);
+  digitalWrite(triacPin, LOW);
+}
+
+// ---------- Read ADS1115 and convert to sensor volts (user must calibrate) ----------
+float readADSVoltage(int channel) {
+  int16_t raw = ads.readADC_SingleEnded(channel);
+  // Convert raw to volts depending on gain:
+  // For GAIN_TWOTHIRDS (±6.144V) LSB = 0.1875 mV
+  float volts = raw * 0.1875e-3; // V
+  // If your wiring uses voltage dividers / burden resistors, include those calibration factors
+  return volts;
+}
