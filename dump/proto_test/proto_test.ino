@@ -18,9 +18,9 @@ const int USER_FIRING_DELAY = 5000; // 5000µs = ~50% brightness
 
 // --- Pin Definitions ---
 // ADC Channels (ADS1115)
-const int VOLTAGE_ADC_PIN = 0;   // ZMPT101B connected to A0 (Single-Ended)
-const int CURRENT_ADC_DIFF_P = 1;// SCT-013 Biased Signal connected to A1
-const int CURRENT_ADC_DIFF_N = 2;// Stable 2.5V Reference connected to A2
+const int VOLTAGE_ADC_PIN = 3;   // ZMPT101B connected to A0 (Single-Ended)
+const int CURRENT_ADC_DIFF_P = 0;// SCT-013 Biased Signal connected to A1
+const int CURRENT_ADC_DIFF_N = 1;// Stable 2.5V Reference connected to A2
 // Control Pins (Arduino)
 const int ZCD_PIN = 2;       // PC814 output (MUST be D2 or D3)
 const int TRIAC_PIN = 7;     // MOC3023M trigger (D7)

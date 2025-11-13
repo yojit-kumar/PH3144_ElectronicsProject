@@ -1,27 +1,28 @@
 #include <Wire.h>
 #include <Adafruit_ADS1X15.h>
 
-// Set the FIRING_DELAY according to the power needed. For a half-cycle the time period is 1/100Hz = 1e4 microseconds. Choose accordingly !!
-const int FIRING_DELAY = 3000;
+// Set the FIRING_DELAY according to the power needed.
+// For a 50Hz half-cycle the time period is 1/100Hz = 10,000 microseconds. [cite: 2]
+const int FIRING_DELAY = 1000;
 
 // ADC1115 Pins
-const int CURR_ADC_S = 0;
-const int CURR_ADC_R = 1;
-const int VOLT_ADC_S = 3;
+const int CURR_ADC_S = 0; // Current Signal (SCT-013) on AIN0
+const int CURR_ADC_R = 1; // Current 2.5 V Reference
+const int VOLT_ADC_S = 3; // Voltage Signal (ZMPT101B) on AIN3
+// Note: CURR_ADC_R = 1 is no longer used in this logic
 
 // Control Pins
-const int ZCD_PIN = 2; //D2 
-const int TRIAC_PIN = 7; //D7
+const int ZCD_PIN = 2; //D2 [cite: 4]
+const int TRIAC_PIN = 7; //D7 [cite: 4]
 
 // Calibiration Constants
-double VOLTAGE_CAL = 304.60; // Use voltage_calibirate code 
-double CURRENT_CAL = 1.0; // Use current code
+double VOLTAGE_CAL = 304.60; // Use voltage_calibirate code [cite: 5]
+double CURRENT_CAL = 1.0; // Use current code [cite: 5]
 
 // ADS1115 Setup
 Adafruit_ADS1115 ads;
 // Voltage Multiplier
-const float ADS_VOLTS_PER_BIT = 0.000125F; // GAIN_ONE
-const int ADS1115_MID_POINT = 0; // Not Sure, this maybe 2.5V
+const float ADS_VOLTS_PER_BIT = 0.000125F; // For GAIN_ONE [cite: 6]
 
 // Global Variables
 volatile bool zcdFlag = false;
@@ -42,25 +43,26 @@ void setup() {
     Serial.println("Failed to Initialize ADS");
     while (1);
   }
-  // Set Gain
+  // Set Gain - GAIN_ONE gives +/- 4.096V range, good for 2.5V biased signals
   ads.setGain(GAIN_ONE);
   Serial.println("ADS Initialized");
 
   // Setup Arduino Pins
   pinMode(TRIAC_PIN, OUTPUT);
   pinMode(ZCD_PIN, INPUT);
-  digitalWrite(TRIAC_PIN, LOW);
+  digitalWrite(TRIAC_PIN, LOW); // Start with Triac OFF 
 
   // Attach Interrupt
-  attachInterrupt(digitalPinToInterrupt(ZCD_PIN), onZeroCross, RISING); //RISING for full-cycle CHANGE for half-cycle
+  // Use CHANGE to catch both rising and falling edges for a 100Hz cycle
+  attachInterrupt(digitalPinToInterrupt(ZCD_PIN), onZeroCross, CHANGE);
 }
 
 void loop() {
   // FIRING LOGIC
   if (zcdFlag == true) {
     delayMicroseconds(FIRING_DELAY);
-    digitalWrite(TRIAC_PIN, HIGH);
-    delayMicroseconds(100); // arbitary wait-time
+    digitalWrite(TRIAC_PIN, HIGH); // 
+    delayMicroseconds(20); // Short pulse to latch Triac
     digitalWrite(TRIAC_PIN, LOW);
     zcdFlag = false; // Reset the flag.
   }
@@ -73,16 +75,24 @@ void loop() {
     long sumCurrentSq = 0;
     int16_t voltageSample;
     int16_t currentSample;
+    int16_t currentReference;
+
+    // --- MUST CALIBRATE THESE OFFSETS ---
+    // Measure the signal on A0 and A3 with 230V AC OFF.
+    // The stable number you see is your offset.
+    int voltageOffset = 20000; // Placeholder, MUST CALIBRATE 
+    int currentOffset = 20000; // Placeholder, MUST CALIBRATE
 
     for (int i = 0; i < sampleCount; i++) {
 
+      // Read both channels as single-ended
       voltageSample = ads.readADC_SingleEnded(VOLT_ADC_S);
-      currentSample = ads.readADC_Differential_0_1();
+      currentSample = ads.readADC_SingleEnded(CURR_ADC_S);
+      currentReference = ads.readADC_SingleEnded(CURR_ADC_R); 
 
-      int voltageOffset = 20000; // must be calculated with GAIN in microseconds
-
+      // Remove the 2.5V DC offset in software
       long filteredVoltage = voltageSample - voltageOffset;
-      long filteredCurrent = currentSample;
+      long filteredCurrent = currentSample - currentReference;
 
       sumVoltageSq += filteredVoltage * filteredVoltage;
       sumCurrentSq += filteredCurrent * filteredCurrent;
@@ -95,14 +105,15 @@ void loop() {
 
     double meanCurrentSq = (double)sumCurrentSq / sampleCount;
     double rmsCurrentRaw = sqrt(meanCurrentSq);
-    double Irms = rmsCurrentRaw * CURRENT_CAL;
+    double Irms = rmsCurrentRaw * ADS_VOLTS_PER_BIT * CURRENT_CAL; // <--FIXED: Must also multiply by ADS_VOLTS_PER_BIT
 
-    // Power Calculation
+    // Power Calculation (Apparent Power)
     double power = Vrms * Irms;
 
-    Serial.print("Vrms: "); Serial.print(Vrms); Serial.println(" V");
-    Serial.print("Irms: "); Serial.print(Irms); Serial.println(" A");
-    Serial.print("Power: "); Serial.print(power); Serial.println(" W");
+    Serial.print("Vrms: ");
+    Serial.print(Vrms, 2); Serial.println(" V"); // [cite: 20]
+    Serial.print("Irms: "); Serial.print(Irms, 3); Serial.println(" A");
+    Serial.print("Power: "); Serial.print(power, 2); Serial.println(" VA");
 
     lastPrintTime = millis();
   }

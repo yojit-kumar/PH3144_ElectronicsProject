@@ -25,8 +25,8 @@ void loop() {
   
   // --- Part 1: Blink Timer ---
   // This block checks if 2 seconds have passed and toggles the bulb's state.
-  if (millis() - lastToggleTime > 2000) {
-    bulbState = !bulbState; // Flip the state (ON to OFF, or OFF to ON)
+  if (true) { //millis() - lastToggleTime > 2000) {
+    //bulbState = !bulbState; // Flip the state (ON to OFF, or OFF to ON)
     lastToggleTime = millis(); // Reset the timer
     
     if (bulbState == true) {
@@ -41,10 +41,11 @@ void loop() {
     // If the bulb should be ON, we send a rapid, repeating
     // pulse to the Triac gate to "brute force" it on.
     // We do this by sending a 1ms HIGH pulse every 10ms.
+    delayMicroseconds(3000);
     digitalWrite(TRIAC_PIN, HIGH);
-    delayMicroseconds(1000); // Pulse for 1ms
+    delayMicroseconds(1); // Pulse for 1ms
     digitalWrite(TRIAC_PIN, LOW);
-    delay(1); // Wait 9ms
+    delayMicroseconds(10000); // Wait 9ms
     
   } else {
     // If the bulb should be OFF, we do nothing.
