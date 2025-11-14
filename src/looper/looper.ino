@@ -9,9 +9,9 @@
 
 // --- USER SETTINGS ---
 const int MIN_DELAY = 0;      // Brightest (microseconds)
-const int MAX_DELAY = 5000;      // Dimmest (microseconds)
-const int DELAY_STEP = 250;      // How much to change each step
-const int CYCLES_PER_STEP = 50; // How many AC cycles to stay at each delay level
+const int MAX_DELAY = 10000;      // Dimmest (microseconds)
+const int DELAY_STEP = 500;      // How much to change each step
+const int CYCLES_PER_STEP = 250; // How many AC cycles to stay at each delay level
 
 // --- Pin Definitions ---
 const int ZCD_PIN = 2;     // Must be D2 for interrupt

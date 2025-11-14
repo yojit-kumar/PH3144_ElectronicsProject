@@ -11,7 +11,7 @@
 // --- USER SETTING ---
 // Change this value to dim the bulb!
 // 1000 = Bright | 5000 = Medium | 8500 = Dim
-const int FIRING_DELAY = 1000; 
+const int FIRING_DELAY = 5000; 
 
 // --- Pin Definitions ---
 const int ZCD_PIN = 2;     // Must be D2 for interrupt
