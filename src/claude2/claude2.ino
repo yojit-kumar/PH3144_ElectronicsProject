@@ -145,7 +145,7 @@ void calibrateVoltage() {
   double totalRawRMS = 0;
   
   for (int cycle = 0; cycle < CALIBRATION_CYCLES; cycle++) {
-    long sumVoltageSq = 0;
+    unsigned long long sumVoltageSq = 0;
     int16_t voltageOffset = findVoltageOffset();
     
     // Sample voltage

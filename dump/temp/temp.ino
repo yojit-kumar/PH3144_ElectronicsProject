@@ -1,5 +1,5 @@
 /*
- * AC DIMMER WITH POWER MONITORING - FINAL VERSION
+ * AC DIMMER WITH POWER MONITORING - FINAL VERSION (FIXED)
  * 
  * Features:
  * - Fixed delay dimming control
@@ -27,7 +27,7 @@
 const int FIRING_DELAY = 1000;
 
 // Calibration constants from calibration procedure
-const double VOLTAGE_CAL = 1300.00;    // Replace with your calibrated value
+const double VOLTAGE_CAL = 158.39;    // Replace with your calibrated value
 const double CURRENT_CAL = 0.000378;  // Replace with your calibrated value
 
 // ====================================
@@ -54,6 +54,9 @@ const unsigned long MEASUREMENT_INTERVAL = 1000; // Update every 1 second
 double Vrms = 0.0;
 double Irms = 0.0;
 double Power = 0.0;
+
+// Voltage offset - calculated once at startup
+int16_t voltageOffset = 0;
 
 // --- Triac Control ---
 volatile bool zcdFlag = false;
@@ -83,8 +86,17 @@ void setup() {
   lcd.setCursor(0, 0);
   lcd.print("AC Power Monitor");
   lcd.setCursor(0, 1);
+  lcd.print("Calibrating...");
+  
+  // Calculate voltage offset once at startup
+  delay(1000);
+  voltageOffset = findVoltageOffset();
+  Serial.print("Voltage Offset: "); Serial.println(voltageOffset);
+  
+  lcd.clear();
+  lcd.setCursor(0, 0);
   lcd.print("Starting...");
-  delay(2000);
+  delay(1000);
   lcd.clear();
   
   // Setup pins
@@ -131,54 +143,87 @@ void loop() {
 
 void measurePower() {
   // --- Measure Voltage ---
-  long long sumVoltageSq = 0;
-  int16_t voltageOffset = findVoltageOffset();
+  long sumVoltageSq = 0;
+  int validSamples = 0;
   
   for (int i = 0; i < SAMPLE_COUNT; i++) {
     int16_t voltageSample = ads.readADC_SingleEnded(VOLTAGE_ADC_PIN);
-    long filteredVoltage = voltageSample - voltageOffset;
-    sumVoltageSq += filteredVoltage * filteredVoltage;
-    delayMicroseconds(100);
-  }
-  
-  double meanVoltageSq = (double)sumVoltageSq / SAMPLE_COUNT;
-  double rmsVoltageRaw = sqrt(meanVoltageSq);
-  double rmsVoltageVolts = rmsVoltageRaw * ADS_VOLTS_PER_BIT;
-  Vrms = rmsVoltageVolts * VOLTAGE_CAL;
-  
-  // --- Measure Current ---
-  long sumCurrentSq = 0;
-  
-  for (int i = 0; i < SAMPLE_COUNT; i++) {
-    int16_t currentSample = ads.readADC_Differential_0_1();
-    sumCurrentSq += (long)currentSample * (long)currentSample;
+    
+    // Check for valid reading
+    if (voltageSample != -1) {
+      long filteredVoltage = voltageSample - voltageOffset;
+      sumVoltageSq += filteredVoltage * filteredVoltage;
+      validSamples++;
+    }
     delayMicroseconds(50);
   }
   
-  double meanCurrentSq = (double)sumCurrentSq / SAMPLE_COUNT;
-  double rmsCurrentRaw = sqrt(meanCurrentSq);
-  Irms = rmsCurrentRaw * CURRENT_CAL;
+  // Calculate voltage RMS
+  if (validSamples > 0) {
+    double meanVoltageSq = (double)sumVoltageSq / validSamples;
+    double rmsVoltageRaw = sqrt(meanVoltageSq);
+    double rmsVoltageVolts = rmsVoltageRaw * ADS_VOLTS_PER_BIT;
+    Vrms = rmsVoltageVolts * VOLTAGE_CAL;
+  } else {
+    Vrms = 0;
+    Serial.println("Warning: No valid voltage samples");
+  }
+  
+  // --- Measure Current ---
+  long sumCurrentSq = 0;
+  validSamples = 0;
+  
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    int16_t currentSample = ads.readADC_Differential_0_1();
+    
+    // Check for valid reading
+    if (currentSample != -1) {
+      sumCurrentSq += (long)currentSample * (long)currentSample;
+      validSamples++;
+    }
+    delayMicroseconds(50);
+  }
+  
+  // Calculate current RMS
+  if (validSamples > 0) {
+    double meanCurrentSq = (double)sumCurrentSq / validSamples;
+    double rmsCurrentRaw = sqrt(meanCurrentSq);
+    Irms = rmsCurrentRaw * CURRENT_CAL;
+  } else {
+    Irms = 0;
+    Serial.println("Warning: No valid current samples");
+  }
   
   // --- Calculate Power ---
   Power = Vrms * Irms;
   
   // Sanity checks
-  if (Vrms < 0 || Vrms > 300) Vrms = 0;
-  if (Irms < 0 || Irms > 30) Irms = 0;
-  if (Power < 0 || Power > 7000) Power = 0;
+  if (Vrms < 0 || Vrms > 300 || isnan(Vrms)) Vrms = 0;
+  if (Irms < 0 || Irms > 30 || isnan(Irms)) Irms = 0;
+  if (Power < 0 || Power > 7000 || isnan(Power)) Power = 0;
 }
 
 int16_t findVoltageOffset() {
   // Find DC offset by averaging samples
   long sum = 0;
-  const int offsetSamples = 50;
+  const int offsetSamples = 100;
+  int validSamples = 0;
   
   for (int i = 0; i < offsetSamples; i++) {
-    sum += ads.readADC_SingleEnded(VOLTAGE_ADC_PIN);
-    delayMicroseconds(50);
+    int16_t sample = ads.readADC_SingleEnded(VOLTAGE_ADC_PIN);
+    if (sample != -1) {
+      sum += sample;
+      validSamples++;
+    }
+    delay(10);  // Longer delay during calibration
   }
   
-  return sum / offsetSamples;
+  if (validSamples > 0) {
+    return sum / validSamples;
+  } else {
+    Serial.println("ERROR: Could not find voltage offset!");
+    return 20000; // Default fallback value
+  }
 }
 
 void updateDisplay() {

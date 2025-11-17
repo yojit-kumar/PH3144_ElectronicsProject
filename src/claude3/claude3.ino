@@ -154,7 +154,7 @@ void calibrateVoltage() {
     // Sample voltage
     for (int i = 0; i < SAMPLE_COUNT; i++) {
       int16_t voltageSample = ads.readADC_SingleEnded(VOLTAGE_ADC_PIN);
-      long filteredVoltage = voltageSample - voltageOffset;
+      unsigned long long filteredVoltage = voltageSample - voltageOffset;
       sumVoltageSq += filteredVoltage * filteredVoltage;
       delayMicroseconds(100);
     }
