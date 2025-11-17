@@ -22,5 +22,7 @@ A project to design and build a closed-loop AC power controller using a PID algo
 2.  Install the required Arduino libraries:
     * `EmonLib`
     * `LiquidCrystal_I2C`
-    *
+    * `Adafruit_ADS1X15`
+3. Use the calibiration codes in the `src/` directory to calibirate the measurement components
+4. Run the test codes from the same directory.
 ---
