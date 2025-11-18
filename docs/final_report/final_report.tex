@@ -1,0 +1,324 @@
+\documentclass[12pt]{article}
+
+%Packages
+\usepackage[a4paper, margin=1in]{geometry}
+
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{siunitx}
+\usepackage{romannum}
+
+\usepackage{bookmark}
+\usepackage{booktabs}
+\usepackage{indentfirst}
+\usepackage{multirow}
+\usepackage{float}
+
+\usepackage{titlesec}
+
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+\usepackage[american]{circuitikz}
+\usepackage{listings}
+
+\newcommand*{\titleGP}{\begingroup
+	\centering % Center all text
+	\vspace*{\baselineskip} % White space at the top of the page
+
+	\rule{\textwidth}{1.6pt}\vspace*{-\baselineskip}\vspace*{2pt} % Thick horizontal line
+	\rule{\textwidth}{0.4pt}\\[\baselineskip] % Thin horizontal line
+	{\LARGE Project Report}\\[0.2\baselineskip] % Title
+	\rule{\textwidth}{0.4pt}\vspace*{-\baselineskip}\vspace{3.2pt} % Thin horizontal line
+	\rule{\textwidth}{1.6pt}\\[2\baselineskip] % Thick horizontal line
+
+	\vspace*{2in}
+    
+    	\Huge Precision Closed-Loop AC Power Controller using PID 
+    	
+	\vspace*{2in}
+    
+
+	\Large Name: Yojit Kumar\\
+	\vspace*{0.2in}
+	\Large Reg. No.: 20231289\\
+	\vspace*{0.2in}
+	\Large Course Code: PH3144\\
+	\vspace*{0.2in}
+	\Large Group: \#23\\
+
+\endgroup}
+
+\makeatletter
+\let\latexps@plain\ps@plain
+\newcommand{\frontmatter}{\let\ps@plain\ps@empty\pagestyle{empty}}
+\newcommand{\mainmatter}{%
+  \let\ps@plain\latexps@plain\pagestyle{plain}%
+  \clearpage
+  \pagenumbering{arabic}}
+\makeatother
+
+\begin{document}
+\frontmatter
+\titleGP
+\clearpage
+
+\mainmatter
+\section{Introduction}
+In any modern electric system, especially in labs, precise control over the power delivered to an electrical appliance/device is important for efficiency, stabilty and protection of devices. What we've tried to do is to precisely control the electrical power of any device. We are using a simple light bulb for the ease of demonstration. But in theory, we can implement this on any device connected to AC Mains.
+
+Our device measures the current and voltage input for an electric load and allows us to fix a power in the working range of the appliance. We control this with a technique called \emph{phase-angle fired control}, where the firing  angle of a thyristor (Triac) is adjusted to control the portion of the AC Waveform delivered to the load.
+
+For an electric bulb, this works as a dimmer for the system, allowing us to observe the difference. But a simple dimmer is an open-loop control, whilst we have implemented a closed-loop approach with help of \emph{PID}. You cannot ask the dimmer to set the bulb to run at $\SI{50}{\watt}$. You can only set it to 50\% effort, but you can't be sure. It is also susceptible to disturbances. If there is an increase in the voltage in the circuit, the dimmer doesn't know that, and the bulb will light brighter.
+
+A closed-loop control is better because it uses the feedback to compare the result. We are constantly measuring the current and voltage to find the actual Power and compare it to the set-point to dynamically adjust the firing angle based on the feedback.
+
+\section{Design}
+
+\subsection{Block Diagram}
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+    auto,
+    block/.style={rectangle, draw, fill=blue!20, text width=6em, text centered, rounded corners, minimum height=4em},
+    line/.style={draw, -latex'}
+]
+
+% Place the nodes
+\node [block] (ui) {User Interface (UI)};
+\node [block, right=2cm of ui] (arduino) {Controller (PID Logic)};
+\node [block, below=2cm of arduino] (control) {AC Control System (Muscle)};
+\node [block, right=2cm of arduino] (measure) {Measurement System (Senses)};
+\node [block, below=2cm of measure] (load) {AC Load};
+
+% Draw the lines (arrows)
+\path [line] (ui) -- node [above] {Setpoint} (arduino);
+\path [line] (arduino) -- node [left] {Control Signal} (control);
+\path [line] (control) -- (load);
+\path [line] (load) -- node [left] {Feedback} (measure);
+\path [line] (measure) -- (arduino);
+
+\end{tikzpicture}
+\caption{Block Overview of the Closed-Loop Power Controller}
+\label{fig:block_diagram}
+\end{figure}
+
+We divide our system into smaller task-specific parts to better understand our system. First is the User Interface (UI), it allows us to display the results and also fix a set-point for the system. The Controller (here Arduino) is the brain of the whole system, running the PID logic, and controlling all the other components of our project. The Measurement System consists of some simple sensors that allow us to take current and voltage measurements and send these to the Controller. The AC Control is the muscle of the system, it controls the parameters to maintain the set-point as dictated by the Controller.
+
+\subsection{Hardware Design}
+
+\begin{figure}[H]
+\includegraphics[width=\columnwidth]{AC_Power_Controller.pdf}
+\caption{KiCad Schematics for the whole working the circuit}
+\end{figure}
+
+\subsubsection{Measurement Module}
+This module is responsible for providing the critical feedback to the controller. The major components of the measurement module are:
+\begin{enumerate}
+	\item \underline{ZMPT101B Voltage Sensor Module}
+
+		This active module safely steps down the 230V AC mains voltage to a low-voltage, isolated AC sine wave. Its onboard op-amp circuit biases this signal around a 2.5V DC offset, making it safe for the low-voltage components to read.
+
+	\item \underline{SCT-013-030 Current Sensor}
+
+		A non-invasive current transformer that clamps around the live wire. It outputs a small AC voltage (0-1V) that is directly proportional to the AC current flowing to the load. This signal is also biased at 2.5V using an external voltage divider.
+
+	\item \underline{ADS1115 16-bit  ADC Module}
+
+		This is a high-precision, 16-bit Analog-to-Digital Converter. It is connected to the Arduino via the I²C bus (A4/A5). The Arduino's built-in 10-bit ADC is too noisy and has insufficient resolution for a "precision" controller. The 16-bit ADS1115 provides high-accuracy, low-noise measurements.
+\end{enumerate}
+
+\subsubsection{AC Control Module (Muscle)}
+This component is the  high-voltage part of the circuit that controls the power flow. The major components that make up the AC Control Module are:
+\begin{enumerate}
+	\item \underline{MOC3023M (Triac Driver Optocoupler)}
+
+		This chip is the safe bridge between the Arduino and the Triac. It receives a low-voltage 5V "fire" command from the Arduino (on pin D7) and uses an internal light-activated switch to trigger the high-voltage Triac.
+		
+		This provides galvanic isolation. It is the most important safety component, creating a physical air gap between the 230V AC circuit and the 5V logic circuit, protecting the Arduino and the user from lethal voltage.
+	
+	\item \underline{BTA41600B (Triac)}
+
+		This is the heavy-duty, high-power AC switch. When it receives the trigger signal from the MOC3023M, it "latches" ON and conducts current to the light bulb. It automatically turns itself OFF (resets) at the end of every AC half-cycle when the current drops to zero.
+
+		This is the component that actually controls the power. By precisely timing when this switch is turned on within each 10ms half-cycle, we can control the total energy delivered to the load.
+
+	\item \underline{PC814 (AC-Input Optocoupler)}
+
+		This chip functions as our Zero-Crossing Detector (ZCD). Its AC input side watches the sine wave from the step-down transformer. At the precise moment the wave crosses its center point, the optocoupler's internal LED turns off, and triggers the phototransistor on the output side. This interrupt signal pulls down the output PIN\_4 that is connected to $+\SI{5}{\volt}$ of the Arduino.
+
+		This signal is connected to the Arduino's hardware interrupt pin (D2). It provides a perfect timing pulse 100 times per second, synchronizing the Arduino's code with the AC line.	
+\end{enumerate}
+
+\section{Methodology}%%% PLEASE DO NOT COPY PASTE %%%
+%%% PLEASE DO NOT COPY PASTE %%%
+
+%%% PLEASE DO NOT COPY PASTE %%%
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+
+
+%In order to control the high-voltage current passing through the load to precisely change the power. We are using \emph{Phase Angle Control} using the \textbf{Triac}. The method requires us to change the gate voltage to the triac to control the current through the heavy load.
+%\begin{figure}[H]
+%	\centering
+%	\includegraphics[width=0.75\columnwidth]{phase_angle_1.png}
+%	\caption{Line voltage for the triac \emph{Ref: Malvino \& Bates Pg. 549}}
+%	\label{fig:phase_angle_1}
+%\end{figure}
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\begin{figure}[H]
+%	\centering
+%	\includegraphics[width=0.75\columnwidth]{phase_angle_2.png}
+%	\caption{Voltage across a load connected to the triac \emph{Ref: Malvino \& Bates Pg. 549}}
+%	\label{fig:phase_angle_2}
+%\end{figure}
+%
+%\autoref{fig:phase_angle_1} shows the line voltage. When the triac is triggered, the triac starts conducting. It basically means the triac is on, and it will remain on until the line voltage goes back to zero then it turns off again. \autoref{fig:phase_angle_2} shows us the voltage across the load during this process. This turning on and off happens for every half-pulse of AC passing through the triac. Thus, the triac is switches its state around 200 times a second.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\begin{figure}[H]
+%	\centering
+%	\begin{subfigure}[t]{0.5\textwidth}	
+%		\centering
+%		\includegraphics[width=0.99\linewidth]{output_voltage.png}
+%		\caption{Voltage of Full-Wave Phase Angle Control (Sinusodial)}
+%		\label{subfig:subfig_1}
+%	\end{subfigure}%
+%	\begin{subfigure}[t]{0.5\textwidth}
+%		\centering
+%		\includegraphics[width=1\linewidth]{output_power.png}
+%		\caption{Power of Full-Wave Phase Angle Control}
+%		\label{subfig:subfig_2}
+%	\end{subfigure}
+%	\caption{Voltage \& Power Curves for different $\theta$ \emph{Ref: Littlefuse AN1003 datasheet}} 
+%	\label{fig:power_curve}
+%\end{figure}
+%
+%In \autoref{fig:power_curve}, $\theta$ is the conduction angle which is equivalent to $\pi - \theta_{\mathrm{firing}}$. $\theta_{\mathrm{firing}}$ is proportional to the firing delay. Thus, we can use the curves to study how the power or voltage may vary across the load as we change the firing delay.
+%But, as we are working with a closed-loop feedback system we don't need to refer to the curve, our algorithm is supposed to give us a correction just based on the error from the set point.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%In order to find this error term, we need to find the real-time value of the power first. For which we are using a voltage sesing module (\emph{ZMPT101B}) and a current sensing module (\emph{SCT-013-030}), and both of these are connected to an external Analog-to-Digital Convertor(ADC) (\emph{ADS1115}) which is there to give us a better resolution than the onboard ADC of the Arduino Board.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%Another important part of controlling the AC power and setting a firing delay is to actually know when the AC pulse starts. Because of how a triac functions it will auto turn-off at the end of each half cycle but we need to know the starting point. This starting point is detected using a zero-crossing detector that we have created using a step-down transformer and a AC input optocoupler (\emph{PC814}). We have also attached a basic I2C display to as a part of our user interface to display the power, voltage and current information in real-time.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+\section{Implementation}
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%The project was designed with two separate perfboards:high-voltage perfboard as in \autoref{fig:high_voltage} and a low-voltage perfboard \autoref{fig:low_voltage}. This was created to keep in mind the safety of low volage components, and over safe handling of the project. We've also used optocouplers for the same reason; to create circuit isolation.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\begin{figure}[ht]
+%	\includegraphics[width=\columnwidth]{20251113_150119 (1).jpg}
+%	\caption{\textbf{This is the high-voltage perfboard.} AC-In is from the left side which passes to the triac in the middle and load connected to the rightmost connetion point. Triac is connected to the \emph{MOC3023M} IC. The \emph{ZMPT101B} module at the left has a stepdown transformer visible to us as a blue cube. The empty IC base is supposed to hold the \emph{PC814} IC which is the AC input optocoupler, a part of the zero-crossing detector. All connections are soldered at the back and terminate at the jumper base in the middle, which we connect to the low voltage perfboard.}
+%	\label{fig:high_voltage}%%% PLEASE DO NOT COPY PASTE %%%
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+
+%\end{figure}
+%
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+%There is an extra component of the project on the breadboard as seen in \autoref{fig:zcd}. It is a zero-crossing detector made using \emph{PC814} IC and a bridge rectifier. The purpose of this circuit is to provide the required interrupt signal as seen in \autoref{fig:interrupt_signal}. This was created as a fix for a bug in our earlier designs. We will talk more on this in the debugging sections.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\begin{figure}[ht]
+%	\begin{subfigure}[t]{0.45\textwidth}
+%	\flushleft
+%	\includegraphics[width=0.85\textwidth]{20251113_150124 (1).jpg}
+%	\caption{\textbf{This is the low-voltage perfboard.} Jumper connections from the first perfboard and the current sensor module join at the top-right. There are voltage dividers and a clamper at the top for the ac-signal from the current-sensor module. The I2C display module is connected on top-left. And all connections terminate at the jumper base at the bottom, that connects to the \emph{Arduino UNO}}
+%	\label{fig:low_voltage}
+%	\end{subfigure}
+%	\hfill
+%	\begin{subfigure}[t]{0.45\textwidth}
+%	\flushright
+%	\includegraphics[width=\textwidth]{20251113_150127 (1).jpg}
+%	\caption{This is the zero-crossing detector fix we created. The right breadboard has a bridge-rectifier which is connected to a voltage output of a stepdown 12V transformer. The rectified signal is passing to the \emph{PC814} IC on the breadboard at the right. This simply triggers at the start of each pulse half-cycle and sends a signal to the \emph{Arduino UNO}}
+%%% PLEASE DO NOT COPY PASTE %%%
+
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%	\label{fig:zcd}
+%	\end{subfigure}
+%	\caption{Low-voltage Circuit}
+%\end{figure}
+%
+%\begin{figure}[ht]
+%	\centering
+%	\includegraphics[width=0.5\columnwidth]{20251113_150136 (1).jpg}
+%	\caption{This is the output for the interrupt signal from the zero-crossing detector being fired. We have a pulse/signal every $\SI{10}{\milli\second}$ as seen on the oscilloscope.}
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%	\label{fig:interrupt_signal}
+%\end{figure}
+%
+\section{Software}
+%The code that we've written for the project is in C++, it integrates all hardware components into a single, event-driven closed loop system.
+%
+%We've have used some libraries for the operation of certain sensors, or simply the PID algorithm.
+%%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\verb|<Wire.h>|: This is for the I2C communication, allowing us to use the \emph{ADS1115} and the LCD Display.
+%
+%\verb|<Adafruit_ADS1X15.h>|: It's a high level interface, specifically for the \emph{ADS1115} IC. It makes the process of setting a gain, and reading 16-bit analog values easier.
+%
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\verb|<PID_v1.h>|: This is our robust, prebuilt PID algorithm, saving us development time.
+%
+%\verb|<Emonlib.h>|: This is to directly communicate with the \emph{SCT-013-030} current sensor module, when using the Arduino's inbuilt ADC.
+%
+%\verb|<ZMPT101B.h>|: This is for direct communicationwith the voltage sensing module,when using the Arduino's inbuilt ADC.
+%
+%We initialized the system with the \verb|setup()| function to configure the components before the main loop. \verb|ads.begin()| and the \verb|ads.setGain(GAIN_ONE)| to start the ADS and configures the full 16-bit resolution over a $\pm \SI{4.096}{\volt}$ range. 
+%Next thing, we initialize is the PID controller. \verb|myPID.SetSampleTime(100)| tells the PID to run every $\SI{100}{\milli\second}$ and the main PID function is \verb|PID(&measurePower, &pidOutput, &setpointPower, Kp, Ki, Kd, REVERSE|.
+%A very important part of the code is the interrupt attachment done through: \verb|attachInterrupt(digitalPinToInterrupt(ZCD_PIN), onZeroCross, CHANGE)| It tells the microcontroller to stop whatever it is doing and immediately run the \verb|onZeroCross()|
+%
+%The main loop is structured to be non-blocking, ensuring that firing logic is never delayed.
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%\begin{lstlisting}[language=C++]
+%
+%	if (zcdFlag == true) {
+%		// Wait for the delay calculated by the PID
+%		delayMicroseconds(firingDelay);
+%
+%		// Fire the Triac
+%		digitalWrite(TRIAC_PIN, HIGH);
+%		delayMicroseconds(20); // Short pulse
+%		digitalWrite(TRIAC_PIN, LOW);
+%%% PLEASE DO NOT COPY PASTE %%%
+
+
+%		   
+%    		zcdFlag = false; // Reset the flag
+%	}
+%\end{lstlisting}
+%
+\section{Debugging}
+\section{Results \& Discussion}
+
+\end{document}
